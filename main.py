@@ -103,6 +103,6 @@ async def test():
     print(result)
 
 if __name__ == "__main__":
-    asyncio.run(test())
+    # asyncio.run(test())
 
-    # mcp.run(transport="stdio")
+    mcp.run(transport="stdio")
