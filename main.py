@@ -1,13 +1,32 @@
 import httpx
 import asyncio
 
+from dotenv import load_dotenv
+import os
+
+from google import genai
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("github-analysis")
 GITHUB_API = 'https://api.github.com'
 
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+# summarise the changes made to the commit
+async def summarise_commit(commit_info: str):
+    try:
+        response = client.models.generate_content(
+            model="gemini-3.5-flash", contents=f"Summarise the changes made in following GitHub commit in 2-3 sentences: {commit_info}"
+        )
+        return response.text
+    except Exception as e:
+        return f'Error generating summary: {e}'
+
 # fetch from github
-async def fetch(url: str, token: str = None):
+async def fetch_commit(url: str, token: str = None):
     headers = {
         "User-Agent": "github-analysis/1.0",
         "Accept": "application/vnd.github+json"
@@ -40,7 +59,7 @@ async def get_latest_commit(owner: str, repo: str, token: str = None):
     """
     url = f'{GITHUB_API}/repos/{owner}/{repo}/commits'
     
-    commits = await fetch(url, token)
+    commits = await fetch_commit(url, token)
 
     if not commits:
         return f'Could not fetch commits for {owner}/{repo}'
@@ -49,12 +68,11 @@ async def get_latest_commit(owner: str, repo: str, token: str = None):
     msg = latest_commit['commit']['message']
     author = latest_commit['commit']['author']['name']
     author_email = latest_commit['commit']['author']['email']
-    author_id = latest_commit['author']['id']
     date_commit = latest_commit['commit']['author']['date']
     sha = latest_commit['sha']
 
     detail_url = f'{GITHUB_API}/repos/{owner}/{repo}/commits/{sha}'
-    details = await fetch(detail_url, token)
+    details = await fetch_commit(detail_url, token)
 
     changes = ''
 
@@ -65,8 +83,8 @@ async def get_latest_commit(owner: str, repo: str, token: str = None):
 
     if changes == '':
         changes = 'No details of changed files available'
-    
-    return f"""
+
+    general_info = f"""
         Latest Commit for {owner}/{repo}:
             Author: {author} - {author_email}
             Date: {date_commit}
@@ -75,6 +93,10 @@ async def get_latest_commit(owner: str, repo: str, token: str = None):
             Files Changed:
             {changes}
     """
+
+    summary = await summarise_commit(general_info)
+    
+    return general_info + 'Summary:\n' + summary
 
 async def test():
     result = await get_latest_commit("annaznguyn", "portfolio")
