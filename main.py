@@ -98,11 +98,5 @@ async def get_latest_commit(owner: str, repo: str, token: str = None):
     
     return general_info + 'Summary:\n' + summary
 
-async def test():
-    result = await get_latest_commit("annaznguyn", "portfolio")
-    print(result)
-
 if __name__ == "__main__":
-    # asyncio.run(test())
-
     mcp.run(transport="stdio")
